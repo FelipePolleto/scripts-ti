@@ -5,8 +5,16 @@ function Executar-Script {
     )
     $destino = "$env:TEMP\$nome"
     Write-Host "Baixando e executando $nome..." -ForegroundColor Cyan
-    Invoke-WebRequest -Uri $url -OutFile $destino -UseBasicParsing
-    powershell -ExecutionPolicy Bypass -File $destino
+
+    try {
+        Invoke-WebRequest -Uri $url -OutFile $destino -UseBasicParsing
+        & powershell -ExecutionPolicy Bypass -NoExit -File $destino
+    }
+    catch {
+        Write-Host "ERRO: $_" -ForegroundColor Red
+        Write-Host "Pressione qualquer tecla para voltar ao menu..."
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    }
 }
 
 while ($true) {
@@ -25,11 +33,11 @@ while ($true) {
     $op = Read-Host "Digite a opcao"
 
     switch ($op) {
-        1 { Executar-Script "https://trten.sharepoint.com/sites/LogsTI/Shared%20Documents/Scripts/Dock.ps1" "Dock.ps1" }
-        2 { Executar-Script "https://trten.sharepoint.com/sites/LogsTI/Shared%20Documents/Scripts/LimpezaV3.2.ps1" "LimpezaV3.2.ps1" }
-        3 { Executar-Script "https://trten.sharepoint.com/sites/LogsTI/Shared%20Documents/Scripts/Logs.ps1" "Logs.ps1" }
-        4 { Executar-Script "https://trten.sharepoint.com/sites/LogsTI/Shared%20Documents/Scripts/Monitor.ps1" "Monitor.ps1" }
-        5 { Executar-Script "https://trten.sharepoint.com/sites/LogsTI/Shared%20Documents/Scripts/Monitor-Dock.ps1" "Monitor-Dock.ps1" }
+        1 { Executar-Script "https://raw.githubusercontent.com/FelipePolleto/scripts-ti/main/Dock.ps1" "Dock.ps1" }
+        2 { Executar-Script "https://raw.githubusercontent.com/FelipePolleto/scripts-ti/main/LimpezaV3.2.ps1" "LimpezaV3.2.ps1" }
+        3 { Executar-Script "https://raw.githubusercontent.com/FelipePolleto/scripts-ti/main/Logs.ps1" "Logs.ps1" }
+        4 { Executar-Script "https://raw.githubusercontent.com/FelipePolleto/scripts-ti/main/Monitor.ps1" "Monitor.ps1" }
+        5 { Executar-Script "https://raw.githubusercontent.com/FelipePolleto/scripts-ti/main/Monitor-Dock.ps1" "Monitor-Dock.ps1" }
         0 { exit }
         default { Write-Host "Opcao invalida!" -ForegroundColor Red; Start-Sleep -Seconds 2 }
     }
