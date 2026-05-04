@@ -1,5 +1,5 @@
 # ============================================================
-# CONFIGURAÇÕES GLOBAIS
+# CONFIGURACOES GLOBAIS
 # ============================================================
 $DCU_PATH          = "C:\Program Files\Dell\CommandUpdate\dcu-cli.exe"
 $DCU_LOG           = "$env:TEMP\DCU_Output.log"
@@ -37,14 +37,13 @@ function Verificar-DCU {
 }
 
 # ============================================================
-# FUNÇÃO: VERIFICAR E CORRIGIR DISPLAYLINK
+# FUNCAO: VERIFICAR E CORRIGIR DISPLAYLINK
 # ============================================================
 function Verificar-DisplayLink {
     Write-Log "=== VERIFICANDO DRIVER DISPLAYLINK ===" "INFO"
     $script:DisplayLinkProblema = $false
     $script:DisplayLinkCorrigido = $false
 
-    # Verifica se ha erros do DisplayLink no Event Viewer
     $eventosDisplayLink = Get-WinEvent -FilterHashtable @{
         LogName   = 'System'
         Level     = 2
@@ -53,7 +52,6 @@ function Verificar-DisplayLink {
     Where-Object { $_.Message -match "DisplayLink" } |
     Select-Object -First 5
 
-    # Verifica adaptadores de rede DisplayLink com problema
     $adapterDisplayLink = Get-PnpDevice -ErrorAction SilentlyContinue |
                           Sort-Object FriendlyName -Unique |
                           Where-Object {
@@ -78,7 +76,6 @@ function Verificar-DisplayLink {
             }
         }
 
-        # Tenta corrigir reiniciando todos os dispositivos DisplayLink
         Write-Log "Tentando reiniciar dispositivos DisplayLink..." "INFO"
         try {
             $dispositivosDisplayLink = Get-PnpDevice -ErrorAction Stop |
@@ -96,10 +93,9 @@ function Verificar-DisplayLink {
             $script:DisplayLinkCorrigido = $true
             $script:CorrecaoAplicada = $true
         } catch {
-            Write-Log "Nao foi possível reiniciar dispositivos DisplayLink via PnP." "AVISO"
+            Write-Log "Nao foi possivel reiniciar dispositivos DisplayLink via PnP." "AVISO"
         }
 
-        # Verifica se o problema persiste após o reinício
         $adapterApos = Get-PnpDevice -ErrorAction SilentlyContinue |
                        Sort-Object FriendlyName -Unique |
                        Where-Object {
@@ -109,14 +105,14 @@ function Verificar-DisplayLink {
                        }
 
         if ($adapterApos) {
-            Write-Log "Problema DisplayLink persiste apos reinício. Recomendada reinstalacao manual do driver." "AVISO"
-            Write-Log "  → Acesse: dell.com/support e busque pelo modelo da Dock (ex: UD22)" "AVISO"
-            Write-Log "  → Desinstale o driver DisplayLink atual pelo Gerenciador de Dispositivos" "AVISO"
-            Write-Log "  → Instale o driver baixado e reinicie o notebook" "AVISO"
+            Write-Log "Problema DisplayLink persiste apos reinicio. Recomendada reinstalacao manual do driver." "AVISO"
+            Write-Log "  -> Acesse: dell.com/support e busque pelo modelo da Dock (ex: UD22)" "AVISO"
+            Write-Log "  -> Desinstale o driver DisplayLink atual pelo Gerenciador de Dispositivos" "AVISO"
+            Write-Log "  -> Instale o driver baixado e reinicie o notebook" "AVISO"
             $script:DisplayLinkCorrigido = $false
             $script:RebootNecessario = $true
         } else {
-            Write-Log "Dispositivos DisplayLink normalizados após reinício." "OK"
+            Write-Log "Dispositivos DisplayLink normalizados apos reinicio." "OK"
         }
 
     } else {
@@ -125,7 +121,7 @@ function Verificar-DisplayLink {
 }
 
 # ============================================================
-# FUNÇÃO DE NOTIFICAÇÃO TEAMS
+# FUNCAO DE NOTIFICACAO TEAMS
 # ============================================================
 function Enviar-TeamsNotificacao {
     param(
@@ -145,16 +141,16 @@ function Enviar-TeamsNotificacao {
     )
 
     $emoji = switch ($Resultado) {
-        "RESOLVIDO"          { "" }
-        "SEM PROBLEMAS"      { "" }
-        "REBOOT_NECESSARIO"  { "" }
-        "PROVAVEL HARDWARE"  { "" }
-        "INCONCLUSIVO"       { "" }
-        default              { "" }
+        "RESOLVIDO"          { "[OK]" }
+        "SEM PROBLEMAS"      { "[OK]" }
+        "REBOOT_NECESSARIO"  { "[REBOOT]" }
+        "PROVAVEL HARDWARE"  { "[HARDWARE]" }
+        "INCONCLUSIVO"       { "[?]" }
+        default              { "[INFO]" }
     }
 
     $msg = @"
--->> Diagnostico TI — Dock Station Dell <<--
+-->> Diagnostico TI - Dock Station Dell <<--
 
 Resultado: $Resultado $emoji
 /Usuario: $Usuario
@@ -184,7 +180,7 @@ Resultado: $Resultado $emoji
 }
 
 # ============================================================
-# ETAPA 1 — COLETA DE CONTEXTO
+# ETAPA 1 - COLETA DE CONTEXTO
 # ============================================================
 function Coletar-Contexto {
     Write-Log "=== INICIANDO COLETA DE CONTEXTO ===" "INFO"
@@ -194,7 +190,6 @@ function Coletar-Contexto {
     Write-Log "Usuario    : $($env:USERNAME)" "INFO"
     Write-Log "SO         : $((Get-WmiObject Win32_OperatingSystem).Caption)" "INFO"
 
-    # Verifica Dock via WMI Dell
     $script:DockDetectada = $false
     $script:FirmwareDock  = "Nao identificado"
     try {
@@ -212,10 +207,9 @@ function Coletar-Contexto {
             Write-Log "Dock nao identificada via WMI Dell." "AVISO"
         }
     } catch {
-        Write-Log "Namespace WMI Dell nao disponível. Tentando metodo alternativo..." "AVISO"
+        Write-Log "Namespace WMI Dell nao disponivel. Tentando metodo alternativo..." "AVISO"
     }
 
-    # Método alternativo: detectar dock via dispositivos USB/Thunderbolt
     if (-not $script:DockDetectada) {
         $dockUSB = Get-PnpDevice -ErrorAction SilentlyContinue |
                    Where-Object { $_.FriendlyName -match "Dell.*Dock|Thunderbolt|WD19|WD22|TB16|TB18|UD22|D6000" } |
@@ -232,7 +226,6 @@ function Coletar-Contexto {
         }
     }
 
-    # Verifica portas USB da Dock — ignora Unknown
     Write-Log "Verificando portas USB da Dock..." "INFO"
     $script:PortasUSB = "OK"
     $usbDispositivos = Get-PnpDevice -Class USB -ErrorAction SilentlyContinue |
@@ -248,8 +241,7 @@ function Coletar-Contexto {
         Write-Log "Todas as portas USB estao OK." "OK"
     }
 
-    # Verifica portas de video da Dock — ignora Unknown e duplicatas
-    Write-Log "Verificando portas de vídeo da Dock (DisplayPort/HDMI)..." "INFO"
+    Write-Log "Verificando portas de video da Dock (DisplayPort/HDMI)..." "INFO"
     $script:PortasVideo = "OK"
     $videoDispositivos = Get-PnpDevice -Class Display -ErrorAction SilentlyContinue |
                          Sort-Object FriendlyName -Unique |
@@ -259,11 +251,10 @@ function Coletar-Contexto {
         Write-Log "  Display: $($v.FriendlyName) | Status: $($v.Status)" "INFO"
         if ($v.Status -ne "OK") {
             $script:PortasVideo = "PROBLEMA"
-            Write-Log "  Problema detectado em porta de vídeo: $($v.FriendlyName)" "AVISO"
+            Write-Log "  Problema detectado em porta de video: $($v.FriendlyName)" "AVISO"
         }
     }
 
-    # Verifica alimentação da Dock
     Write-Log "Verificando alimentacao da Dock..." "INFO"
     $script:AlimentacaoDock = "Nao verificado"
     try {
@@ -271,8 +262,8 @@ function Coletar-Contexto {
         if ($bateria) {
             $statusCarga = switch ($bateria.BatteryStatus) {
                 1       { "Descarregando (sem alimentacao externa)" }
-                2       { "AC conectado — Carregando" }
-                3       { "AC conectado — Carga completa" }
+                2       { "AC conectado - Carregando" }
+                3       { "AC conectado - Carga completa" }
                 default { "Status desconhecido ($($bateria.BatteryStatus))" }
             }
             Write-Log "Status de energia: $statusCarga" "INFO"
@@ -282,13 +273,12 @@ function Coletar-Contexto {
             }
         } else {
             Write-Log "Informacao de bateria nao disponivel." "AVISO"
-            $script:AlimentacaoDock = "Nao disponível"
+            $script:AlimentacaoDock = "Nao disponivel"
         }
     } catch {
         Write-Log "Nao foi possivel verificar alimentacao." "AVISO"
     }
 
-    # Verifica suspensão seletiva de USB
     $usbSeletivo = powercfg /query SCHEME_CURRENT SUB_USB 2>$null
     if ($usbSeletivo -match "AC Power Setting Index\s*:\s*0x00000001") {
         Write-Log "Suspensao seletiva de USB esta ATIVADA." "AVISO"
@@ -298,7 +288,6 @@ function Coletar-Contexto {
         $script:UsbSeletivoAtivo = $false
     }
 
-    # Verifica erros no Event Viewer
     $eventos = Get-WinEvent -FilterHashtable @{
         LogName   = 'System'
         Level     = 2
@@ -308,7 +297,7 @@ function Coletar-Contexto {
     Select-Object -First 5
 
     if ($eventos) {
-        Write-Log "Erros recentes no Event Viewer relacionados à Dock/USB/Display/DisplayLink:" "AVISO"
+        Write-Log "Erros recentes no Event Viewer relacionados a Dock/USB/Display/DisplayLink:" "AVISO"
         foreach ($e in $eventos) {
             Write-Log "  [$($e.TimeCreated)] $($e.Message.Substring(0,[Math]::Min(120,$e.Message.Length)))" "AVISO"
         }
@@ -320,7 +309,7 @@ function Coletar-Contexto {
 }
 
 # ============================================================
-# ETAPA 2 — TENTATIVAS DE CORRECAO AUTOMATICA
+# ETAPA 2 - TENTATIVAS DE CORRECAO AUTOMATICA
 # ============================================================
 function Tentar-Correcoes {
     Write-Log "=== INICIANDO TENTATIVAS DE CORRECAO AUTOMATICA ===" "INFO"
@@ -328,18 +317,16 @@ function Tentar-Correcoes {
     $script:RebootNecessario  = $false
     $script:DCUExecutado      = $false
 
-    # Tentativa 1: Forçar deteccao de displays
-    Write-Log "Tentativa 1: Forçando deteccao de displays via Dock..." "INFO"
+    Write-Log "Tentativa 1: Forcando deteccao de displays via Dock..." "INFO"
     try {
         Start-Process "DisplaySwitch.exe" -ArgumentList "/extend" -Wait -ErrorAction Stop
         Start-Sleep -Seconds 3
-        Write-Log "Deteccao de display forçada." "OK"
+        Write-Log "Deteccao de display forcada." "OK"
         $script:CorrecaoAplicada = $true
     } catch {
-        Write-Log "Nao foi possível forçar deteccao via DisplaySwitch." "AVISO"
+        Write-Log "Nao foi possivel forcar deteccao via DisplaySwitch." "AVISO"
     }
 
-    # Tentativa 2: Desativar suspensão seletiva de USB
     if ($script:UsbSeletivoAtivo) {
         Write-Log "Tentativa 2: Desativando suspensao seletiva de USB..." "INFO"
         try {
@@ -353,7 +340,6 @@ function Tentar-Correcoes {
         }
     }
 
-    # Tentativa 3: Reiniciar dispositivos USB com erro real (ignora Unknown)
     if ($script:PortasUSB -eq "PROBLEMA") {
         Write-Log "Tentativa 3: Reiniciando dispositivos USB com problema..." "INFO"
         try {
@@ -373,11 +359,9 @@ function Tentar-Correcoes {
         }
     }
 
-    # Tentativa 4: Verificar e corrigir DisplayLink
     Write-Log "Tentativa 4: Verificando e corrigindo driver DisplayLink..." "INFO"
     Verificar-DisplayLink
 
-    # Tentativa 5: Dell Command Update (firmware da Dock)
     if (Verificar-DCU) {
         Write-Log "Tentativa 5: Executando scan via Dell Command Update (inclui firmware Dock)..." "INFO"
         Write-Log "Isso pode levar alguns minutos. Aguarde..." "INFO"
@@ -388,7 +372,7 @@ function Tentar-Correcoes {
                                     -Wait -PassThru -NoNewWindow
 
         if ($scanResult.ExitCode -eq 0) {
-            Write-Log "Scan DCU concluído. Aplicando atualizacoes..." "OK"
+            Write-Log "Scan DCU concluido. Aplicando atualizacoes..." "OK"
 
             $updateResult = Start-Process -FilePath $DCU_PATH `
                                           -ArgumentList "/applyUpdates -silent -reboot=disable -outputlog=`"$DCU_LOG`"" `
@@ -402,32 +386,30 @@ function Tentar-Correcoes {
                 default { Write-Log "DCU: Codigo inesperado ($($updateResult.ExitCode)). Verifique o log DCU." "AVISO" }
             }
         } elseif ($scanResult.ExitCode -eq 500) {
-            Write-Log "DCU: Nenhuma atualizacao disponível (código 500). Firmware OK." "OK"
+            Write-Log "DCU: Nenhuma atualizacao disponivel (codigo 500). Firmware OK." "OK"
         } else {
             Write-Log "DCU scan falhou com codigo $($scanResult.ExitCode)." "ERRO"
         }
     }
 
-    # Tentativa 6: Reiniciar serviço Plug and Play
-    Write-Log "Tentativa 6: Reiniciando serviço Plug and Play..." "INFO"
+    Write-Log "Tentativa 6: Reiniciando servico Plug and Play..." "INFO"
     try {
         Restart-Service -Name "PlugPlay" -Force -ErrorAction Stop
         Start-Sleep -Seconds 3
-        Write-Log "Serviço Plug and Play reiniciado." "OK"
+        Write-Log "Servico Plug and Play reiniciado." "OK"
         $script:CorrecaoAplicada = $true
     } catch {
-        Write-Log "Nao foi possivel reiniciar o serviço Plug and Play." "AVISO"
+        Write-Log "Nao foi possivel reiniciar o servico Plug and Play." "AVISO"
     }
 }
 
 # ============================================================
-# ETAPA 3 — VALIDACAO POS-CORRECAO
+# ETAPA 3 - VALIDACAO POS-CORRECAO
 # ============================================================
 function Validar-Resultado {
     Write-Log "=== VALIDANDO RESULTADO ===" "INFO"
     Start-Sleep -Seconds 5
 
-    # Re-verifica dock após correções
     $dockApos = $false
     try {
         $dock = Get-WmiObject -Namespace "root\dell\sysinv" `
@@ -445,13 +427,11 @@ function Validar-Resultado {
         if ($dockUSBApos) { $dockApos = $true }
     }
 
-    # Re-verifica portas USB — ignora Unknown
     $usbProblemaApos = Get-PnpDevice -Class USB -ErrorAction SilentlyContinue |
                        Sort-Object FriendlyName -Unique |
                        Where-Object { $_.Status -ne "OK" -and $_.Status -ne "Unknown" }
     $portasUSBApos = if ($usbProblemaApos) { "PROBLEMA" } else { "OK" }
 
-    # Re-verifica DisplayLink
     $displayLinkApos = Get-PnpDevice -ErrorAction SilentlyContinue |
                        Sort-Object FriendlyName -Unique |
                        Where-Object {
@@ -461,12 +441,12 @@ function Validar-Resultado {
                        }
     $displayLinkStatusApos = if ($displayLinkApos) { "PROBLEMA" } else { "OK" }
 
-    Write-Log "Dock detectada ANTES     : $(if ($script:DockDetectada) { 'Sim' } else { 'Nao' })" "INFO"
-    Write-Log "Dock detectada APÓS      : $(if ($dockApos) { 'Sim' } else { 'Nao' })" "INFO"
-    Write-Log "Portas USB ANTES         : $($script:PortasUSB)" "INFO"
-    Write-Log "Portas USB APÓS          : $portasUSBApos" "INFO"
-    Write-Log "DisplayLink ANTES        : $(if ($script:DisplayLinkProblema) { 'PROBLEMA' } else { 'OK' })" "INFO"
-    Write-Log "DisplayLink APÓS         : $displayLinkStatusApos" "INFO"
+    Write-Log "Dock detectada ANTES  : $(if ($script:DockDetectada) { 'Sim' } else { 'Nao' })" "INFO"
+    Write-Log "Dock detectada APOS   : $(if ($dockApos) { 'Sim' } else { 'Nao' })" "INFO"
+    Write-Log "Portas USB ANTES      : $($script:PortasUSB)" "INFO"
+    Write-Log "Portas USB APOS       : $portasUSBApos" "INFO"
+    Write-Log "DisplayLink ANTES     : $(if ($script:DisplayLinkProblema) { 'PROBLEMA' } else { 'OK' })" "INFO"
+    Write-Log "DisplayLink APOS      : $displayLinkStatusApos" "INFO"
 
     if ($dockApos -and $portasUSBApos -eq "OK" -and $displayLinkStatusApos -eq "OK" -and -not $script:ErrosEventViewer) {
         $script:ResultadoFinal = "SEM PROBLEMAS"
@@ -482,40 +462,40 @@ function Validar-Resultado {
 }
 
 # ============================================================
-# ETAPA 4 — RELATORIO FINAL + NOTIFICAÇÃO TEAMS
+# ETAPA 4 - RELATORIO FINAL + NOTIFICACAO TEAMS
 # ============================================================
 function Exibir-Relatorio {
     Write-Log "============================================" "INFO"
-    Write-Log "        RESULTADO DO DIAGNÓSTICO            " "INFO"
+    Write-Log "        RESULTADO DO DIAGNOSTICO            " "INFO"
     Write-Log "============================================" "INFO"
 
     switch ($script:ResultadoFinal) {
         "SEM PROBLEMAS" {
-            Write-Log "✅ SEM PROBLEMAS — Dock estavel, USB, video e DisplayLink OK." "OK"
+            Write-Log "[OK] SEM PROBLEMAS - Dock estavel, USB, video e DisplayLink OK." "OK"
         }
         "RESOLVIDO" {
-            Write-Log "✅ RESOLVIDO — Problema no DisplayLink corrigido automaticamente." "OK"
+            Write-Log "[OK] RESOLVIDO - Problema no DisplayLink corrigido automaticamente." "OK"
         }
         "REBOOT_NECESSARIO" {
-            Write-Log "🔄 REBOOT NECESSARIO — Firmware/drivers atualizados, aguardando reinicio." "AVISO"
-            Write-Log "   Após reiniciar, reconecte o cabo de rede na Dock." "AVISO"
+            Write-Log "[REBOOT] REBOOT NECESSARIO - Firmware/drivers atualizados, aguardando reinicio." "AVISO"
+            Write-Log "   Apos reiniciar, reconecte o cabo de rede na Dock." "AVISO"
         }
-        "PROVÁVEL HARDWARE" {
-            Write-Log "🔴 PROVAVEL HARDWARE — Dock nao detectada apos todas as tentativas." "ERRO"
+        "PROVAVEL HARDWARE" {
+            Write-Log "[HARDWARE] PROVAVEL HARDWARE - Dock nao detectada apos todas as tentativas." "ERRO"
             Write-Log "   Proximos passos:" "ERRO"
             Write-Log "     1. Verificar cabo USB-C/Thunderbolt da Dock" "ERRO"
             Write-Log "     2. Testar Dock em outro computador Dell" "ERRO"
             Write-Log "     3. Verificar fonte de alimentacao da Dock" "ERRO"
-            Write-Log "     4. Se falhar → acionar troca de hardware" "ERRO"
+            Write-Log "     4. Se falhar -> acionar troca de hardware" "ERRO"
         }
         "INCONCLUSIVO" {
-            Write-Log "⚠️  INCONCLUSIVO — Nao foi possível determinar a causa." "AVISO"
+            Write-Log "[?] INCONCLUSIVO - Nao foi possivel determinar a causa." "AVISO"
             if ($script:DisplayLinkProblema -and -not $script:DisplayLinkCorrigido) {
                 Write-Log "   Driver DisplayLink com problema persistente." "AVISO"
-                Write-Log "   → Acesse: dell.com/support e busque pelo modelo da Dock (ex: UD22)" "AVISO"
-                Write-Log "   → Desinstale o driver DisplayLink atual pelo Gerenciador de Dispositivos" "AVISO"
-                Write-Log "   → Instale o driver baixado e reinicie o notebook" "AVISO"
-                Write-Log "   → Após reiniciar, reconecte o cabo de rede na Dock" "AVISO"
+                Write-Log "   -> Acesse: dell.com/support e busque pelo modelo da Dock (ex: UD22)" "AVISO"
+                Write-Log "   -> Desinstale o driver DisplayLink atual pelo Gerenciador de Dispositivos" "AVISO"
+                Write-Log "   -> Instale o driver baixado e reinicie o notebook" "AVISO"
+                Write-Log "   -> Apos reiniciar, reconecte o cabo de rede na Dock" "AVISO"
             } else {
                 Write-Log "   Verifique os logs e escale para analise manual." "AVISO"
             }
@@ -529,23 +509,23 @@ function Exibir-Relatorio {
     } else { "OK" }
 
     Enviar-TeamsNotificacao `
-        -Resultado        $script:ResultadoFinal `
-        -Usuario          $env:USERNAME `
-        -Computador       $env:COMPUTERNAME `
-        -DockDetectada    $(if ($script:DockDetectada)    { "Sim" } else { "Nao" }) `
-        -FirmwareDock     $script:FirmwareDock `
-        -PortasUSB        $script:PortasUSB `
-        -PortasVideo      $script:PortasVideo `
-        -AlimentacaoDock  $script:AlimentacaoDock `
+        -Resultado         $script:ResultadoFinal `
+        -Usuario           $env:USERNAME `
+        -Computador        $env:COMPUTERNAME `
+        -DockDetectada     $(if ($script:DockDetectada)    { "Sim" } else { "Nao" }) `
+        -FirmwareDock      $script:FirmwareDock `
+        -PortasUSB         $script:PortasUSB `
+        -PortasVideo       $script:PortasVideo `
+        -AlimentacaoDock   $script:AlimentacaoDock `
         -DisplayLinkStatus $displayLinkStatusFinal `
-        -ErrosEventViewer $(if ($script:ErrosEventViewer) { "Sim" } else { "Nao" }) `
-        -DCUExecutado     $(if ($script:DCUExecutado)     { "Sim" } else { "Nao" }) `
-        -CorrecaoAplicada $(if ($script:CorrecaoAplicada) { "Sim" } else { "Nao" }) `
-        -RebootNecessario $(if ($script:RebootNecessario) { "Sim" } else { "Nao" })
+        -ErrosEventViewer  $(if ($script:ErrosEventViewer) { "Sim" } else { "Nao" }) `
+        -DCUExecutado      $(if ($script:DCUExecutado)     { "Sim" } else { "Nao" }) `
+        -CorrecaoAplicada  $(if ($script:CorrecaoAplicada) { "Sim" } else { "Nao" }) `
+        -RebootNecessario  $(if ($script:RebootNecessario) { "Sim" } else { "Nao" })
 }
 
 # ============================================================
-# EXECUÇÃO PRINCIPAL
+# EXECUCAO PRINCIPAL
 # ============================================================
 Write-Log "Script iniciado por: $($env:USERNAME) em $(Get-Date)" "INFO"
 
