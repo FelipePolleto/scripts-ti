@@ -1,5 +1,5 @@
 # ============================================================
-# CONFIGURAÇÕES GLOBAIS
+# CONFIGURACOES GLOBAIS
 # ============================================================
 $DCU_PATH          = "C:\Program Files\Dell\CommandUpdate\dcu-cli.exe"
 $DCU_LOG           = "$env:TEMP\DCU_Output.log"
@@ -7,7 +7,7 @@ $DCU_LOG           = "$env:TEMP\DCU_Output.log"
 $TEAMS_WEBHOOK_URL = "https://trten.webhook.office.com/webhookb2/9eccfb36-63e5-4e42-9877-c51fdd1ddf8d@62ccb864-6a1a-4b5d-8e1c-397dec1a8258/IncomingWebhook/3086f82d534f43148039cc95fc598513/a1b3c23d-9ac8-4bd5-aa6b-a32e395db538/V2kRIUB3N8-Shxz5FR5oXdz7BJREWC-hrIAeB95ZDBBQs1"
 
 # ============================================================
-# FUNÇÕES AUXILIARES
+# FUNCOES AUXILIARES
 # ============================================================
 function Write-Log {
     param([string]$Mensagem, [string]$Nivel = "INFO")
@@ -36,7 +36,7 @@ function Verificar-DCU {
 }
 
 # ============================================================
-# FUNÇÃO DE NOTIFICAÇÃO TEAMS (Incoming Webhook)
+# FUNCAO DE NOTIFICACAO TEAMS (Incoming Webhook)
 # ============================================================
 function Enviar-TeamsNotificacao {
     param(
@@ -54,16 +54,16 @@ function Enviar-TeamsNotificacao {
     )
 
     $emoji = switch ($Resultado) {
-        "RESOLVIDO"          { "" }
-        "SEM PROBLEMAS"      { "" }
-        "REBOOT_NECESSARIO"  { "" }
-        "PROVÁVEL HARDWARE"  { "" }
-        "INCONCLUSIVO"       { "️" }
-        default              { "" }
+        "RESOLVIDO"          { "[OK]" }
+        "SEM PROBLEMAS"      { "[OK]" }
+        "REBOOT_NECESSARIO"  { "[REBOOT]" }
+        "PROVAVEL HARDWARE"  { "[HARDWARE]" }
+        "INCONCLUSIVO"       { "[?]" }
+        default              { "[INFO]" }
     }
 
     $msg = @"
-🖥️ Diagnostico TI — Monitor Direto no Notebook Dell
+Diagnostico TI - Monitor Direto no Notebook Dell
 
 /Resultado: $Resultado $emoji
 /Usuario: $Usuario
@@ -91,17 +91,17 @@ function Enviar-TeamsNotificacao {
 }
 
 # ============================================================
-# ETAPA 1 — COLETA DE CONTEXTO
+# ETAPA 1 - COLETA DE CONTEXTO
 # ============================================================
 function Coletar-Contexto {
     Write-Log "=== INICIANDO COLETA DE CONTEXTO ===" "INFO"
 
     $pc = Get-WmiObject Win32_ComputerSystem
     Write-Log "Computador : $($pc.Manufacturer) $($pc.Model)" "INFO"
-    Write-Log "Usuário    : $($env:USERNAME)" "INFO"
+    Write-Log "Usuario    : $($env:USERNAME)" "INFO"
     Write-Log "SO         : $((Get-WmiObject Win32_OperatingSystem).Caption)" "INFO"
 
-    # Verifica drivers de vídeo — ignora Unknown (comportamento normal em alguns adaptadores)
+    # Verifica drivers de video - ignora Unknown (comportamento normal em alguns adaptadores)
     $driversVideo = Get-WmiObject Win32_VideoController |
                     Sort-Object Name -Unique |
                     Select-Object Name, DriverVersion, Status
@@ -109,12 +109,12 @@ function Coletar-Contexto {
     foreach ($d in $driversVideo) {
         Write-Log "Driver video: $($d.Name) | Versao: $($d.DriverVersion) | Status: $($d.Status)" "INFO"
         if ($d.Status -ne "OK" -and $d.Status -ne "Unknown") {
-            Write-Log "Driver com problema detectado: $($d.Name) — Status: $($d.Status)" "AVISO"
+            Write-Log "Driver com problema detectado: $($d.Name) - Status: $($d.Status)" "AVISO"
             $script:DriverStatus = "PROBLEMA"
         }
     }
 
-    # Verifica portas de vídeo disponíveis no notebook — ignora Unknown e duplicatas
+    # Verifica portas de video disponiveis no notebook - ignora Unknown e duplicatas
     Write-Log "Verificando portas de video disponiveis no notebook..." "INFO"
     $pnpDisplays = Get-PnpDevice -Class Display -ErrorAction SilentlyContinue |
                    Sort-Object FriendlyName -Unique |
@@ -139,7 +139,7 @@ function Coletar-Contexto {
         Write-Log "  Monitor: $nome" "INFO"
     }
 
-    # Verifica resolução e frequência — sem duplicatas
+    # Verifica resolucao e frequencia - sem duplicatas
     $configs = Get-WmiObject Win32_VideoController |
                Sort-Object Name -Unique |
                Select-Object Name, CurrentHorizontalResolution, CurrentVerticalResolution, CurrentRefreshRate
@@ -157,7 +157,7 @@ function Coletar-Contexto {
     Select-Object -First 5
 
     if ($eventos) {
-        Write-Log "Erros recentes no Event Viewer relacionados a display/vídeo:" "AVISO"
+        Write-Log "Erros recentes no Event Viewer relacionados a display/video:" "AVISO"
         foreach ($e in $eventos) {
             Write-Log "  [$($e.TimeCreated)] $($e.Message.Substring(0,[Math]::Min(120,$e.Message.Length)))" "AVISO"
         }
@@ -169,7 +169,7 @@ function Coletar-Contexto {
 }
 
 # ============================================================
-# ETAPA 2 — TENTATIVAS DE CORREÇÃO AUTOMATICA
+# ETAPA 2 - TENTATIVAS DE CORRECAO AUTOMATICA
 # ============================================================
 function Tentar-Correcoes {
     Write-Log "=== INICIANDO TENTATIVAS DE CORRECAO AUTOMATICA ===" "INFO"
@@ -177,12 +177,12 @@ function Tentar-Correcoes {
     $script:RebootNecessario  = $false
     $script:DCUExecutado      = $false
 
-    # Tentativa 1: Forçar deteccao de displays
+    # Tentativa 1: Forcar deteccao de displays
     Write-Log "Tentativa 1: Forcando deteccao de displays..." "INFO"
     try {
         Start-Process "DisplaySwitch.exe" -ArgumentList "/extend" -Wait -ErrorAction Stop
         Start-Sleep -Seconds 3
-        Write-Log "Deteccao de display forçada." "OK"
+        Write-Log "Deteccao de display forcada." "OK"
         $script:CorrecaoAplicada = $true
     } catch {
         Write-Log "Nao foi possivel forcar deteccao via DisplaySwitch." "AVISO"
@@ -203,7 +203,7 @@ function Tentar-Correcoes {
         }
         $script:CorrecaoAplicada = $true
     } catch {
-        Write-Log "Nao foi possível reiniciar dispositivos de display via PnP." "AVISO"
+        Write-Log "Nao foi possivel reiniciar dispositivos de display via PnP." "AVISO"
     }
 
     # Tentativa 3: Dell Command Update
@@ -217,7 +217,7 @@ function Tentar-Correcoes {
                                     -Wait -PassThru -NoNewWindow
 
         if ($scanResult.ExitCode -eq 0) {
-            Write-Log "Scan DCU concluído. Aplicando atualizacoes..." "OK"
+            Write-Log "Scan DCU concluido. Aplicando atualizacoes..." "OK"
 
             $updateResult = Start-Process -FilePath $DCU_PATH `
                                           -ArgumentList "/applyUpdates -silent -reboot=disable -outputlog=`"$DCU_LOG`"" `
@@ -226,31 +226,31 @@ function Tentar-Correcoes {
             switch ($updateResult.ExitCode) {
                 0   { Write-Log "DCU: Atualizacoes aplicadas com sucesso." "OK"; $script:CorrecaoAplicada = $true }
                 1   { Write-Log "DCU: Reboot necessario para concluir." "AVISO"; $script:RebootNecessario = $true; $script:CorrecaoAplicada = $true }
-                5   { Write-Log "DCU: Drivers já estao na versao mais recente." "OK" }
-                500 { Write-Log "DCU: Nenhuma atualizacao disponível no momento." "OK" }
+                5   { Write-Log "DCU: Drivers ja estao na versao mais recente." "OK" }
+                500 { Write-Log "DCU: Nenhuma atualizacao disponivel no momento." "OK" }
                 default { Write-Log "DCU: Codigo inesperado ($($updateResult.ExitCode)). Verifique o log DCU." "AVISO" }
             }
         } elseif ($scanResult.ExitCode -eq 500) {
-            Write-Log "DCU: Nenhuma atualizacao disponivel (código 500). Drivers OK." "OK"
+            Write-Log "DCU: Nenhuma atualizacao disponivel (codigo 500). Drivers OK." "OK"
         } else {
             Write-Log "DCU scan falhou com codigo $($scanResult.ExitCode)." "ERRO"
         }
     }
 
-    # Tentativa 4: Reiniciar serviço Plug and Play
-    Write-Log "Tentativa 4: Reiniciando serviço Plug and Play..." "INFO"
+    # Tentativa 4: Reiniciar servico Plug and Play
+    Write-Log "Tentativa 4: Reiniciando servico Plug and Play..." "INFO"
     try {
         Restart-Service -Name "PlugPlay" -Force -ErrorAction Stop
         Start-Sleep -Seconds 3
-        Write-Log "Serviço Plug and Play reiniciado." "OK"
+        Write-Log "Servico Plug and Play reiniciado." "OK"
         $script:CorrecaoAplicada = $true
     } catch {
-        Write-Log "Nao foi possível reiniciar o serviço Plug and Play." "AVISO"
+        Write-Log "Nao foi possivel reiniciar o servico Plug and Play." "AVISO"
     }
 }
 
 # ============================================================
-# ETAPA 3 — VALIDAÇÃO PÓS-CORREÇÃO
+# ETAPA 3 - VALIDACAO POS-CORRECAO
 # ============================================================
 function Validar-Resultado {
     Write-Log "=== VALIDANDO RESULTADO ===" "INFO"
@@ -259,7 +259,7 @@ function Validar-Resultado {
     $monitoresApos = Get-WmiObject WmiMonitorID -Namespace root\wmi -ErrorAction SilentlyContinue
     $script:QtdMonitoresApos = ($monitoresApos | Measure-Object).Count
 
-    # Re-verifica drivers de vídeo — ignora Unknown
+    # Re-verifica drivers de video - ignora Unknown
     $driversApos = Get-WmiObject Win32_VideoController |
                    Sort-Object Name -Unique |
                    Where-Object { $_.Status -ne "OK" -and $_.Status -ne "Unknown" }
@@ -284,7 +284,7 @@ function Validar-Resultado {
 }
 
 # ============================================================
-# ETAPA 4 — RELATÓRIO FINAL + NOTIFICAÇÃO TEAMS
+# ETAPA 4 - RELATORIO FINAL + NOTIFICACAO TEAMS
 # ============================================================
 function Exibir-Relatorio {
     Write-Log "============================================" "INFO"
@@ -293,24 +293,24 @@ function Exibir-Relatorio {
 
     switch ($script:ResultadoFinal) {
         "SEM PROBLEMAS" {
-            Write-Log "✅ SEM PROBLEMAS — Monitor estavel, driver OK, nenhum erro detectado." "OK"
+            Write-Log "[OK] SEM PROBLEMAS - Monitor estavel, driver OK, nenhum erro detectado." "OK"
         }
         "RESOLVIDO" {
-            Write-Log "✅ RESOLVIDO — Monitor detectado apos correções automáticas." "OK"
+            Write-Log "[OK] RESOLVIDO - Monitor detectado apos correcoes automaticas." "OK"
         }
         "REBOOT_NECESSARIO" {
-            Write-Log "🔄 REBOOT NECESSÁRIO — Atualizacoes aplicadas, aguardando reinicio." "AVISO"
+            Write-Log "[REBOOT] REBOOT NECESSARIO - Atualizacoes aplicadas, aguardando reinicio." "AVISO"
         }
-        "PROVÁVEL HARDWARE" {
-            Write-Log "🔴 PROVAVEL HARDWARE — Monitor nao detectado e driver com problema." "ERRO"
-            Write-Log "   Próximos passos:" "ERRO"
+        "PROVAVEL HARDWARE" {
+            Write-Log "[HARDWARE] PROVAVEL HARDWARE - Monitor nao detectado e driver com problema." "ERRO"
+            Write-Log "   Proximos passos:" "ERRO"
             Write-Log "     1. Testar monitor com outro cabo (HDMI/DisplayPort/USB-C)" "ERRO"
             Write-Log "     2. Testar monitor em outro computador Dell" "ERRO"
             Write-Log "     3. Testar outra porta de video disponivel no notebook" "ERRO"
-            Write-Log "     4. Se falhar → acionar troca de hardware" "ERRO"
+            Write-Log "     4. Se falhar -> acionar troca de hardware" "ERRO"
         }
         "INCONCLUSIVO" {
-            Write-Log "⚠️  INCONCLUSIVO — Nao foi possível determinar a causa." "AVISO"
+            Write-Log "[?] INCONCLUSIVO - Nao foi possivel determinar a causa." "AVISO"
             Write-Log "   Verifique os logs e escale para analise manual." "AVISO"
         }
     }
@@ -332,7 +332,7 @@ function Exibir-Relatorio {
 }
 
 # ============================================================
-# EXECUÇÃO PRINCIPAL
+# EXECUCAO PRINCIPAL
 # ============================================================
 Write-Log "Script iniciado por: $($env:USERNAME) em $(Get-Date)" "INFO"
 
