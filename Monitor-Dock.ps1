@@ -1,5 +1,5 @@
 # ============================================================
-# CONFIGURAÇÕES GLOBAIS
+# CONFIGURACOES GLOBAIS
 # ============================================================
 $DCU_PATH          = "C:\Program Files\Dell\CommandUpdate\dcu-cli.exe"
 $DCU_LOG           = "$env:TEMP\DCU_Output.log"
@@ -7,7 +7,7 @@ $DCU_LOG           = "$env:TEMP\DCU_Output.log"
 $TEAMS_WEBHOOK_URL = "https://trten.webhook.office.com/webhookb2/9eccfb36-63e5-4e42-9877-c51fdd1ddf8d@62ccb864-6a1a-4b5d-8e1c-397dec1a8258/IncomingWebhook/3086f82d534f43148039cc95fc598513/a1b3c23d-9ac8-4bd5-aa6b-a32e395db538/V2kRIUB3N8-Shxz5FR5oXdz7BJREWC-hrIAeB95ZDBBQs1"
 
 # ============================================================
-# FUNÇÕES AUXILIARES
+# FUNCOES AUXILIARES
 # ============================================================
 function Write-Log {
     param([string]$Mensagem, [string]$Nivel = "INFO")
@@ -36,7 +36,7 @@ function Verificar-DCU {
 }
 
 # ============================================================
-# FUNÇÃO DE NOTIFICAÇÃO TEAMS (Incoming Webhook)
+# FUNCAO DE NOTIFICACAO TEAMS (Incoming Webhook)
 # ============================================================
 function Enviar-TeamsNotificacao {
     param(
@@ -53,16 +53,16 @@ function Enviar-TeamsNotificacao {
     )
 
     $emoji = switch ($Resultado) {
-        "RESOLVIDO"          { "" }
-        "SEM PROBLEMAS"      { "" }
-        "REBOOT_NECESSARIO"  { "" }
-        "PROVÁVEL HARDWARE"  { "" }
-        "INCONCLUSIVO"       { "️" }
-        default              { "" }
+        "RESOLVIDO"          { "[OK]" }
+        "SEM PROBLEMAS"      { "[OK]" }
+        "REBOOT_NECESSARIO"  { "[REBOOT]" }
+        "PROVAVEL HARDWARE"  { "[HARDWARE]" }
+        "INCONCLUSIVO"       { "[?]" }
+        default              { "[INFO]" }
     }
 
     $msg = @"
-🖥️ Diagnostico TI — Monitor via Dock Dell
+Diagnostico TI - Monitor via Dock Dell
 
 Resultado: $Resultado $emoji
 /Usuario: $Usuario
@@ -89,14 +89,14 @@ Resultado: $Resultado $emoji
 }
 
 # ============================================================
-# ETAPA 1 — COLETA DE CONTEXTO
+# ETAPA 1 - COLETA DE CONTEXTO
 # ============================================================
 function Coletar-Contexto {
     Write-Log "=== INICIANDO COLETA DE CONTEXTO ===" "INFO"
 
     $pc = Get-WmiObject Win32_ComputerSystem
     Write-Log "Computador : $($pc.Manufacturer) $($pc.Model)" "INFO"
-    Write-Log "Usuário    : $($env:USERNAME)" "INFO"
+    Write-Log "Usuario    : $($env:USERNAME)" "INFO"
     Write-Log "SO         : $((Get-WmiObject Win32_OperatingSystem).Caption)" "INFO"
 
     try {
@@ -114,7 +114,7 @@ function Coletar-Contexto {
             $script:DockDetectada = $false
         }
     } catch {
-        Write-Log "Namespace WMI Dell nao disponível. Continuando via metodos alternativos." "AVISO"
+        Write-Log "Namespace WMI Dell nao disponivel. Continuando via metodos alternativos." "AVISO"
         $script:DockDetectada = $false
     }
 
@@ -125,7 +125,7 @@ function Coletar-Contexto {
     $driversVideo = Get-WmiObject Win32_VideoController |
                     Select-Object Name, DriverVersion, Status
     foreach ($d in $driversVideo) {
-        Write-Log "Driver vídeo: $($d.Name) | Versao: $($d.DriverVersion) | Status: $($d.Status)" "INFO"
+        Write-Log "Driver video: $($d.Name) | Versao: $($d.DriverVersion) | Status: $($d.Status)" "INFO"
     }
 
     $eventos = Get-WinEvent -FilterHashtable @{
@@ -143,7 +143,7 @@ function Coletar-Contexto {
         }
         $script:ErrosEventViewer = $true
     } else {
-        Write-Log "Nenhum erro crítico recente no Event Viewer para display/USB." "OK"
+        Write-Log "Nenhum erro critico recente no Event Viewer para display/USB." "OK"
         $script:ErrosEventViewer = $false
     }
 
@@ -158,7 +158,7 @@ function Coletar-Contexto {
 }
 
 # ============================================================
-# ETAPA 2 — TENTATIVAS DE CORREÇÃO AUTOMÁTICA
+# ETAPA 2 - TENTATIVAS DE CORRECAO AUTOMATICA
 # ============================================================
 function Tentar-Correcoes {
     Write-Log "=== INICIANDO TENTATIVAS DE CORRECAO AUTOMATICA ===" "INFO"
@@ -173,7 +173,7 @@ function Tentar-Correcoes {
         Write-Log "Deteccao de display forcada." "OK"
         $script:CorrecaoAplicada = $true
     } catch {
-        Write-Log "Nao foi possível forcar deteccao via DisplaySwitch." "AVISO"
+        Write-Log "Nao foi possivel forcar deteccao via DisplaySwitch." "AVISO"
     }
 
     if ($script:UsbSeletivoAtivo) {
@@ -199,7 +199,7 @@ function Tentar-Correcoes {
                                     -Wait -PassThru -NoNewWindow
 
         if ($scanResult.ExitCode -eq 0) {
-            Write-Log "Scan DCU concluído. Aplicando atualizacoes..." "OK"
+            Write-Log "Scan DCU concluido. Aplicando atualizacoes..." "OK"
 
             $updateResult = Start-Process -FilePath $DCU_PATH `
                                           -ArgumentList "/applyUpdates -silent -reboot=disable -outputlog=`"$DCU_LOG`"" `
@@ -207,8 +207,8 @@ function Tentar-Correcoes {
 
             switch ($updateResult.ExitCode) {
                 0   { Write-Log "DCU: Atualizacoes aplicadas com sucesso." "OK"; $script:CorrecaoAplicada = $true }
-                1   { Write-Log "DCU: Reboot necessário para concluir." "AVISO"; $script:RebootNecessario = $true; $script:CorrecaoAplicada = $true }
-                5   { Write-Log "DCU: Drivers já estao na versao mais recente." "OK" }
+                1   { Write-Log "DCU: Reboot necessario para concluir." "AVISO"; $script:RebootNecessario = $true; $script:CorrecaoAplicada = $true }
+                5   { Write-Log "DCU: Drivers ja estao na versao mais recente." "OK" }
                 500 { Write-Log "DCU: Nenhuma atualizacao disponivel no momento." "OK" }
                 default { Write-Log "DCU: Codigo inesperado ($($updateResult.ExitCode)). Verifique o log DCU." "AVISO" }
             }
@@ -226,12 +226,12 @@ function Tentar-Correcoes {
         Write-Log "Servico Plug and Play reiniciado." "OK"
         $script:CorrecaoAplicada = $true
     } catch {
-        Write-Log "Nao foi possível reiniciar o servico Plug and Play." "AVISO"
+        Write-Log "Nao foi possivel reiniciar o servico Plug and Play." "AVISO"
     }
 }
 
 # ============================================================
-# ETAPA 3 — VALIDAÇÃO PÓS-CORREÇÃO
+# ETAPA 3 - VALIDACAO POS-CORRECAO
 # ============================================================
 function Validar-Resultado {
     Write-Log "=== VALIDANDO RESULTADO ===" "INFO"
@@ -250,14 +250,14 @@ function Validar-Resultado {
     } elseif ($script:CorrecaoAplicada -and $script:RebootNecessario) {
         $script:ResultadoFinal = "REBOOT_NECESSARIO"
     } elseif ($script:QtdMonitoresApos -lt 2 -and -not $script:DockDetectada) {
-        $script:ResultadoFinal = "PROVÁVEL HARDWARE"
+        $script:ResultadoFinal = "PROVAVEL HARDWARE"
     } else {
         $script:ResultadoFinal = "INCONCLUSIVO"
     }
 }
 
 # ============================================================
-# ETAPA 4 — RELATÓRIO FINAL + NOTIFICAÇÃO TEAMS
+# ETAPA 4 - RELATORIO FINAL + NOTIFICACAO TEAMS
 # ============================================================
 function Exibir-Relatorio {
     Write-Log "============================================" "INFO"
@@ -266,25 +266,25 @@ function Exibir-Relatorio {
 
     switch ($script:ResultadoFinal) {
         "SEM PROBLEMAS" {
-            Write-Log "✅ SEM PROBLEMAS — Monitores estaveis, nenhum erro detectado." "OK"
+            Write-Log "[OK] SEM PROBLEMAS - Monitores estaveis, nenhum erro detectado." "OK"
         }
         "RESOLVIDO" {
-            Write-Log "✅ RESOLVIDO — Monitor detectado apos correcoes automaticas." "OK"
+            Write-Log "[OK] RESOLVIDO - Monitor detectado apos correcoes automaticas." "OK"
         }
         "REBOOT_NECESSARIO" {
-            Write-Log "🔄 REBOOT NECESSÁRIO — Atualizacoes aplicadas, aguardando reinicio." "AVISO"
+            Write-Log "[REBOOT] REBOOT NECESSARIO - Atualizacoes aplicadas, aguardando reinicio." "AVISO"
         }
-        "PROVÁVEL HARDWARE" {
-            Write-Log "🔴 PROVÁVEL HARDWARE — Dock nao detectada e poucos monitores ativos." "ERRO"
+        "PROVAVEL HARDWARE" {
+            Write-Log "[HARDWARE] PROVAVEL HARDWARE - Dock nao detectada e poucos monitores ativos." "ERRO"
             Write-Log "   Proximos passos:" "ERRO"
             Write-Log "     1. Testar dock em outro computador Dell" "ERRO"
             Write-Log "     2. Testar monitor direto no computador (sem dock)" "ERRO"
             Write-Log "     3. Testar com outro cabo USB-C/Thunderbolt" "ERRO"
-            Write-Log "     4. Se falhar → acionar troca de hardware" "ERRO"
+            Write-Log "     4. Se falhar -> acionar troca de hardware" "ERRO"
         }
         "INCONCLUSIVO" {
-            Write-Log "⚠️  INCONCLUSIVO — Nao foi possível determinar a causa." "AVISO"
-            Write-Log "   Verifique os logs e escale para análise manual." "AVISO"
+            Write-Log "[?] INCONCLUSIVO - Nao foi possivel determinar a causa." "AVISO"
+            Write-Log "   Verifique os logs e escale para analise manual." "AVISO"
         }
     }
 
@@ -304,7 +304,7 @@ function Exibir-Relatorio {
 }
 
 # ============================================================
-# EXECUÇÃO PRINCIPAL
+# EXECUCAO PRINCIPAL
 # ============================================================
 Write-Log "Script iniciado por: $($env:USERNAME) em $(Get-Date)" "INFO"
 
